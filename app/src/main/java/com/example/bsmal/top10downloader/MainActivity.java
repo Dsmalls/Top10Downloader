@@ -20,6 +20,13 @@ import java.net.URL;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private ListView listApps;
+    // %d is is specifying an integer value by an actual value using the String.format method
+    private String feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=%d/xml";
+    private int feedLimit = 10;
+    // defining my 2 constants
+    private String feedCachedURL = "INVALIDATED";
+    public static final String STATE_URL = "feedURL";
+    public static final String STATE_LIMIT = "feedLimit";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,9 +34,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         listApps = (ListView) findViewById(R.id.xmlListView);
 
+        if(savedInstanceState != null) {
+            feedURL = savedInstanceState.getString(STATE_URL);
+            feedLimit = savedInstanceState.getInt(STATE_LIMIT);
+        }
+
 //        Log.d(TAG, "onCreate: starting AsyncTask ");
 //        DownLoadData downLoadData = new DownLoadData();
-        downloadURL("http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=10/xml");
+        downloadURL(String.format(feedURL, feedLimit)); // passing the String on line 24
 //        downLoadData.execute();
 //        Log.d(TAG, "onCreate: completed");
     }
@@ -47,37 +59,69 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.feeds_menu, menu);
+        if(feedLimit == 10) {
+            menu.findItem(R.id.mnu10).setChecked(true);
+        } else {
+            menu.findItem(R.id.mnu25).setChecked(true);
+        }
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        String feedURL;
+//        String feedURL;
 
         switch(id) {
             case R.id.mnuFree:
-                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=10/xml";
+                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=%d/xml";
                 break;
             case R.id.mnuPaid:
-                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/toppaidapplications/limit=10/xml";
+                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/toppaidapplications/limit=%d/xml";
                 break;
             case R.id.mnuSongs:
-                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml";
+                feedURL = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=%d/xml";
                 break;
+            case R.id.mnu10:
+            case R.id.mnu25:
+                if(!item.isChecked()){
+                    item.setChecked(true);
+                    feedLimit = 35 - feedLimit; // calculating the sum of the tops break down
+                    Log.d(TAG, "onOptionsItemSelectedA: " + item.getTitle() + " setting feedLimit to " + feedLimit);
+                    
+                } else {
+                    Log.d(TAG, "onOptionsItemSelected: " + item.getTitle() + " feedLimit unchanged");
+                }
+                break;
+            case R.id.mnuRefresh:
+                feedCachedURL = "INVALIDATED";
+                break;
+
             default:
                 return super.onOptionsItemSelected(item);
         }
-        downloadURL(feedURL);
+        downloadURL(String.format(feedURL, feedLimit));
         return true;
 
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString(STATE_URL, feedURL);
+        outState.putInt(STATE_LIMIT, feedLimit);
+        super.onSaveInstanceState(outState);
+    }
+
     private void downloadURL(String feedURL) {
-        Log.d(TAG, "downloadURL: starting AsyncTask ");
-        DownLoadData downLoadData = new DownLoadData();
-        downLoadData.execute(feedURL);
-        Log.d(TAG, "downloadURL: completed");
+        if(!feedURL.equalsIgnoreCase(feedCachedURL)) {
+            Log.d(TAG, "downloadURL: starting AsyncTask ");
+            DownLoadData downLoadData = new DownLoadData();
+            downLoadData.execute(feedURL);
+            feedCachedURL = feedURL;
+            Log.d(TAG, "downloadURL: completed");
+        } else {
+            Log.d(TAG, "downloadURL: URL not changed");
+        }
     }
 
     private class DownLoadData extends AsyncTask<String, Void, String> {
